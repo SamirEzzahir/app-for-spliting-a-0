@@ -1,0 +1,14 @@
+ pydantic[email]
+ sqlalchemy
+ asyncpg
+ aiosqlite
+ passlib
+ jose 
+ python-jose
+ python-multipart
+ aiomysql
+ python-dotenv
+ fastapi
+ fastapi.security
+ bcrypt
+ cors
