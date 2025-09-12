@@ -18,10 +18,29 @@
     <button class="btn btn-primary" onclick="addItem()">Add</button>
   </div>
 
-  <ul id="itemsList" class="list-group"></ul>
+<table id="itemsTable" class="table table-striped">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Name</th>
+      <th>Price</th>
+      <th>Created At</th>
+      <th>Owner</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- comment   <ul id="itemsList" class="list-group"></ul>-->
+  </tbody>
+</table>
+
+
+
+
 
   <script src="script.js"></script>
-  <script>
+ 
+ <script>
     if (!localStorage.getItem("token")) {
       window.location.href = "login.html";
     } else {

@@ -13,6 +13,7 @@ class UserOut(BaseModel):
     name: str
     username: str
     email: str
+    created_at: datetime 
     class Config:
         from_attributes = True
 
@@ -29,12 +30,13 @@ class ItemBase(BaseModel):
 class ItemCreate(BaseModel):
     name: str
     price: float
+    
 
 class ItemOut(BaseModel):
     id: int
     name: str
     price: float
     owner_name: str
-
+    created_at: datetime 
     class Config:
         from_attributes = True
