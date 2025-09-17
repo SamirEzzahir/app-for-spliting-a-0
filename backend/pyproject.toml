@@ -1,0 +1,23 @@
+### `backend/pyproject.toml`
+```toml
+[project]
+name = "splitapp"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.111",
+  "uvicorn[standard]>=0.30",
+  "sqlalchemy>=2.0",
+  "pydantic>=2.7",
+  "python-jose[cryptography]",
+  "passlib[bcrypt]",
+  "alembic>=1.13",
+  "psycopg[binary]>=3.2; platform_system != 'Windows'",
+  "python-multipart",
+]
+
+[tool.uvicorn]
+factory = false
+host = "0.0.0.0"
+port = 8000
+```
