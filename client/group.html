@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Group</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="p-5">
+
+<div class="container">
+  <h1 id="groupTitle"></h1>
+
+  <button class="btn btn-secondary mb-3" id="addMemberBtn">Add Members</button>
+  <button class="btn btn-success mb-3" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+    Add Expense
+  </button>
+
+  <h3>Expenses</h3>
+  <ul id="expenseList" class="list-group"></ul>
+</div>
+
+<!-- Add Expense Modal -->
+<div class="modal fade" id="addExpenseModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="addExpenseForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Add Expense</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <input type="text" class="form-control" id="expenseDesc" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Amount</label>
+            <input type="number" step="0.01" class="form-control" id="expenseAmount" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Participants</label>
+            <div id="participantsList" class="form-check">
+              <!-- checkboxes will be added dynamically -->
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-success">Save Expense</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/group.js"></script>
+</body>
+</html>
