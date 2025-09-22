@@ -5,6 +5,18 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime
 from .db import Base
 
+
+class Group(Base):
+    __tablename__ = "groups"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(200))
+    currency: Mapped[str] = mapped_column(String(10), default="USD")
+    owner_id: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    
+    memberships: Mapped[list["Membership"]] = relationship(back_populates="group", cascade="all, delete-orphan")
+    expenses: Mapped[list["Expense"]] = relationship(back_populates="group", cascade="all, delete-orphan")
+
 class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -15,16 +27,6 @@ class User(Base):
 
     memberships: Mapped[list["Membership"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
-class Group(Base):
-    __tablename__ = "groups"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(200))
-    currency: Mapped[str] = mapped_column(String(10), default="USD")
-    owner_id: Mapped[int] = mapped_column(Integer)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
-    memberships: Mapped[list["Membership"]] = relationship(back_populates="group", cascade="all, delete-orphan")
-    expenses: Mapped[list["Expense"]] = relationship(back_populates="group", cascade="all, delete-orphan")
 
 class Membership(Base):
     __tablename__ = "memberships"
