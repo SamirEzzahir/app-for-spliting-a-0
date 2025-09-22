@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Split App</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+  <!-- ✅ Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">💸 SplitApp</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="index.html">🏠 Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="groups.html">👥 Groups</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="expenses.html">💰 Expenses</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="balances.html">📊 Balances</a>
+          </li>
+        </ul>
+
+        <!-- Right side -->
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <button class="btn btn-danger" id="logoutBtn">🚪 Logout</button>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+
+
+  <div class="container">
+    <h1 id="groupTitle">Group</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#manageMembersModal">
+      Manage Members
+    </button>
+    <button class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#addExpenseModal">Add Expense</button>
+     <button class="btn btn-success" id="balanceId">Balances</button>
+  </div>
+  <!-- Manage Members Modal -->
+  <div class="modal fade" id="manageMembersModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="modal-body">
+            <div class="modal-header mb-3">
+              <h5 class="modal-title">Manage Members</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <!-- Add Member Form -->
+              <h6>Add Member</h6>
+              <div class="input-group mb-3">
+                <input type="number" id="newMemberId" class="form-control" placeholder="Enter User ID">
+              </div>
+              <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="is_admin">
+                <label class="form-check-label" for="is_admin">Is Admin?</label>
+              </div>
+              <div class="input-group mb-3">
+                <button class="btn btn-success" onclick="addMember()">Add Member</button>
+              </div>
+            </div>
+            <!-- Members Table -->
+            <div class="input-group mb-3">
+              <table class="table table-striped" id="membersTable">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>User</th>
+                    <th>Admin</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manage Expense Modal -->
+  <div class="modal fade" id="addExpenseModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="modal-body">
+            <div class="modal-header">
+              <h5 class="modal-title">Add Expense</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label">Description</label>
+                <input type="text" class="form-control" id="expenseDesc" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Amount</label>
+                <input type="number" step="0.01" class="form-control" id="expenseAmount" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Select Members</label>
+                <div id="membersList"></div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="submit" onclick=createExpense() class="btn btn-success">Save Expense</button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+  <div class="container mt-5">
+    <h2 class="mb-4 text-center">Expenses</h2>
+
+    <!-- Table -->
+    <div class="card shadow">
+      <div class="card-body">
+        <table class="table table-striped table-bordered">
+          <thead class="table-dark">
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Paid</th>
+              <th>Payer</th>
+              <th>Participants</th>
+              <th>Cost Distribution</th>
+              <th>Category</th>
+              <th>Settled</th>
+            </tr>
+          </thead>
+          <tbody id="expensesTable">
+            <!-- Injected dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- Bootstrap + Custom JS -->
+  <script src="js/config.js"></script>
+  <script src="js/expense.js"></script>
+  <script src="js/login.js"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    if (!localStorage.getItem("token")) {
+      window.location.href = "login.html";
+    } else {
+      //loadItems();
+    }
+  </script>
+
+
+</body>
+
+</html>
