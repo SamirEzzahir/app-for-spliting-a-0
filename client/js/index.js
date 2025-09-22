@@ -1,31 +1,89 @@
-let groups = [];
 
-document.getElementById("createGroupForm").addEventListener("submit", function(e){
-  e.preventDefault();
-  const name = document.getElementById("groupName").value;
-  const type = document.getElementById("groupType").value;
-  const group = { id: Date.now(), name, type, members: [], expenses: [] };
-  groups.push(group);
-  renderGroups();
-  bootstrap.Modal.getInstance(document.getElementById('createGroupModal')).hide();
-});
 
-function renderGroups() {
-  const list = document.getElementById("groupsList");
-  list.innerHTML = "";
-  groups.forEach(g => {
-    const item = document.createElement("div");
-    item.className = "list-group-item d-flex justify-content-between align-items-center";
-    item.innerHTML = `
-      <span>${g.name} (${g.type})</span>
-      <button class="btn btn-sm btn-primary" onclick="openGroup(${g.id})">Open</button>
-    `;
-    list.appendChild(item);
+
+// Load users into checkboxes
+async function loadUsers(mode = "checkbox") {
+  const res = await fetch(`${API_URL}/users`, {
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Content-Type": "application/json"
+    }
   });
+
+  if (!res.ok) {
+    console.error("Failed to fetch users:", res.status);
+    return;
+  }
+  const users = await res.json();
+
+  if (mode === "checkbox") {
+    const container = document.getElementById("usersList");
+    container.innerHTML = "";
+    users.forEach(user => {
+      const div = document.createElement("div");
+      div.className = "form-check";
+      div.innerHTML = `
+        <input class="form-check-input" type="checkbox" value="${user.id}" id="user_${user.id}">
+        <label class="form-check-label" for="user_${user.id}">ID:${user.id} ${user.username}</label>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  if (mode === "table") {
+    const tbody = document.querySelector("#usersTable tbody");
+    tbody.innerHTML = "";
+    users.forEach(u => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${u.id}</td>
+        <td>${u.username}</td>
+        <td>${u.email}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+}
+async function getUserById(userId) {
+  const token = localStorage.getItem("token");
+
+  try {
+    const res = await fetch(`${API_URL}/users/${userId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token,
+      }
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      console.error("Error fetching user:", err);
+      return null;
+    }
+
+    const user = await res.json();
+    console.log("Fetched user:", user);
+    return user; // { id, email, username }
+  } catch (err) {
+    console.error("Network error fetching user:", err);
+    return null;
+  }
 }
 
-function openGroup(id) {
-  const group = groups.find(g => g.id === id);
-  localStorage.setItem("currentGroup", JSON.stringify(group));
-  window.location.href = "group.html";
-}
+
+
+
+
+// Example: Add member dynamically
+// addMember(5); // adds user with ID 5
+
+// Load groups on page load
+
+
+loadUsers("checkbox");
+
+// Show users as a table
+loadUsers("table");
+
+ 

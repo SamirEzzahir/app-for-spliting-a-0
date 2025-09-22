@@ -1,81 +1,136 @@
-let group = JSON.parse(localStorage.getItem("currentGroup"));
-document.getElementById("groupTitle").innerText = `${group.name} (${group.type})`;
 
-document.getElementById("addMemberBtn").addEventListener("click", addMember);
-document.getElementById("addExpenseForm").addEventListener("submit", addExpenseForm);
+async function createGroup() {
+  const name = document.getElementById("groupName").value;
+  const currency = document.getElementById("groupCurrency").value;
+  const checkedBoxes = document.querySelectorAll("#usersList input:checked");
+  const memberIds = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+  if (memberIds.length === 0) {
+    alert("Please select at least one member!");
+    return;
+  }
+  const res = await fetch(`${API_URL}/groups`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + localStorage.getItem("token"),
+    },
+    body: JSON.stringify({
+      name: name,
+      currency: currency,
+      member_ids: memberIds
+    })
+  });
 
-function addMember() {
-  const name = prompt("Enter member name:");
-  if (name) {
-    group.members.push({ name: name.trim(), balance: 0 });
-    saveGroup();
-    alert(name + " added!");
-    renderParticipants();
+  if (res.ok) {
+    const group = await res.json();
+    alert(`Group created: ${group.name}`);
+    window.location.href = `expenses.html?id=${group.id}`;
+  } else {
+    const err = await res.json();
+    alert("Failed to create group: " + JSON.stringify(err));
   }
 }
 
-// Render checkboxes inside modal
-function renderParticipants() {
-  const container = document.getElementById("participantsList");
-  container.innerHTML = "";
-  group.members.forEach((m, idx) => {
-    const div = document.createElement("div");
-    div.className = "form-check";
-    div.innerHTML = `
-      <input class="form-check-input" type="checkbox" id="participant-${idx}" value="${m.name}">
-      <label class="form-check-label" for="participant-${idx}">${m.name}</label>
-    `;
-    container.appendChild(div);
+async function loadGroups() {
+  const res = await fetch(`${API_URL}/groups`, {
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer " + localStorage.getItem("token"),
+      "Content-Type": "application/json"
+    }
   });
-}
-
-function addExpenseForm(e) {
-  e.preventDefault();
-
-  const description = document.getElementById("expenseDesc").value;
-  const amount = parseFloat(document.getElementById("expenseAmount").value);
-
-  // Get selected participants
-  const checkboxes = document.querySelectorAll("#participantsList input:checked");
-  const participants = Array.from(checkboxes).map(cb => cb.value);
-
-  if (participants.length === 0) {
-    alert("Please select at least one participant");
+  if (!res.ok) {
     return;
   }
 
-  // Save expense
-  group.expenses.push({ description, amount, participants });
+  const groups = await res.json();
+  const table = document.getElementById("groupsTable");
+  table.innerHTML = "";
 
-  // Split amount equally
-  const perPerson = amount / participants.length;
-  participants.forEach(p => {
-    const member = group.members.find(m => m.name === p);
-    if (member) member.balance += perPerson;
+  if (groups.length === 0) {
+    table.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No groups found</td></tr>`;
+    return;
+  }
+
+  groups.forEach(g => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+          <td>${g.id}</td>
+          <td>${g.name}</td>
+          <td>${g.currency}</td>
+          <td>${g.owner_id}</td>
+          <td>${new Date(g.created_at).toLocaleString()}</td>
+          <td>
+            <button class="btn btn-sm btn-primary" onclick="openGroup(${g.id})">Open</button>
+            <button class="btn btn-sm btn-warning"  onclick="editGroup(
+    document.getElementById('editName').value,
+    document.getElementById('editCurrency').value)">Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteGroup(${g.id})">Delete</button>
+          </td>
+        `;
+    table.appendChild(row);
+  });
+}
+
+
+
+async function deleteGroup(groupId) {
+  if (!groupId) return;
+
+  //if (!confirm("Are you sure you want to delete this group?")) return;
+
+  const res = await fetch(`${API_URL}/groups/${groupId}`, {
+    method: "DELETE",
+    headers: { "Authorization": "Bearer " + token }
   });
 
-  saveGroup();
-  renderExpenses();
+  if (res.ok) {
+    //alert("Group deleted successfully");
+    loadGroups(); // reload table
+  } else {
+    const err = await res.json();
+    alert("Failed to delete group: " + JSON.stringify(err));
+  }
 
-  // Close modal
-  bootstrap.Modal.getInstance(document.getElementById('addExpenseModal')).hide();
-  document.getElementById("addExpenseForm").reset();
 }
 
-function renderExpenses() {
-  const list = document.getElementById("expenseList");
-  list.innerHTML = "";
-  group.expenses.forEach(e => {
-    const item = document.createElement("li");
-    item.className = "list-group-item";
-    item.innerHTML = `${e.description}: ${e.amount} - Participants: ${e.participants.join(", ")}`;
-    list.appendChild(item);
+
+async function editGroup(newName, newCurrency) {
+  if (!newName && !newCurrency) {
+    alert("Provide a new name or currency");
+    return;
+  }
+
+  const payload = {};
+  if (newName) payload.name = newName;
+  if (newCurrency) payload.currency = newCurrency;
+
+  const res = await fetch(`${API_URL}/groups/${groupId}`, {
+    method: "PUT",
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
   });
+
+  if (res.ok) {
+    const updatedGroup = await res.json();
+    alert(`Group updated: ${updatedGroup.name} (${updatedGroup.currency})`);
+    loadGroupDetails(); // optional: reload group info
+  } else {
+    const err = await res.json();
+    console.error("Update failed:", err);
+    alert("Failed to update group: " + JSON.stringify(err));
+  }
 }
 
-function saveGroup() {
-  localStorage.setItem("currentGroup", JSON.stringify(group));
+
+function openGroup(groupId) {
+  // redirection to group details page
+  window.location.href = `expenses.html?id=${groupId}`;
 }
 
-renderParticipants();
-renderExpenses();
+
+
+ loadGroups();
