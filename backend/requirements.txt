@@ -12,3 +12,5 @@
  fastapi.security
  bcrypt
  cors
+ wheel
+ pandas

@@ -1,6 +1,5 @@
 
 
-
 // Load users into checkboxes
 async function loadUsers(mode = "checkbox") {
   const res = await fetch(`${API_URL}/users`, {
@@ -63,7 +62,7 @@ async function getUserById(userId) {
     }
 
     const user = await res.json();
-    console.log("Fetched user:", user);
+
     return user; // { id, email, username }
   } catch (err) {
     console.error("Network error fetching user:", err);
@@ -71,6 +70,34 @@ async function getUserById(userId) {
   }
 }
 
+document.addEventListener("DOMContentLoaded", () => {
+  const currentUserSpan = document.getElementById("currentUser");
+
+  async function loadCurrentUser() {
+    try {
+      const res = await fetch(`${API_URL}/currentUser`, {
+        headers: {
+          "Authorization": "Bearer " + token,
+          "Content-Type": "application/json"
+        }
+      });
+      if (!res.ok) {
+        console.error("Failed to fetch current user:", res.status);
+        return;
+      }
+      const user = await res.json();
+      
+      currentUserSpan.textContent = `👤 ${user.username}`;
+    } catch (err) {
+      console.error("Error fetching current user:", err);
+    }
+  }
+
+  // Run on page load
+  loadCurrentUser();
+
+
+});
 
 
 
@@ -86,4 +113,3 @@ loadUsers("checkbox");
 // Show users as a table
 loadUsers("table");
 
- 

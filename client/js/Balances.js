@@ -27,7 +27,12 @@ async function loadBalances() {
   }
 }
 
+ // Example logout logic
+    document.getElementById("routerToExpenses").addEventListener("click", () => {
+      window.location.href = `expenses.html?id=${groupId}`;
+    });
 
+ 
 
 async function loadSettlements() {
   try {
@@ -42,7 +47,7 @@ async function loadSettlements() {
       table.innerHTML = `<tr><td colspan="3" class="text-center text-muted">No settlements needed 🎉</td></tr>`;
       return;
     }
-console.log(data);
+ 
     data.forEach(s => {
       const row = document.createElement("tr");
       row.innerHTML = `

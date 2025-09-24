@@ -20,12 +20,7 @@ async def get_users(session: AsyncSession) -> list[UserOut]:
     users = result.scalars().all()               # Get list of User objects
     return [UserOut.model_validate(u) for u in users]
 
-async def get_user_by_id(session: AsyncSession, user_id: int) -> UserOut:
-    result = await session.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    return UserOut.model_validate(user)
+
 
 
 async def update_user(session: AsyncSession, user_id: int, data: UserUpdate) -> UserOut:
@@ -139,42 +134,23 @@ async def add_expense(session: AsyncSession, *, group_id: int, payer_id: int, de
 
 
 async def get_expenses(session: AsyncSession, group_id: int) -> list[ExpenseOut]:
-     # Load expenses + splits eagerly
-    result = await session.execute(
-        select(Expense)
-        .where(Expense.group_id == group_id)
-        .options(selectinload(Expense.splits))
-    )
+    result = await session.execute(select(Expense).where(Expense.group_id == group_id)    )
     expenses = result.scalars().all()
-    # Collect all user IDs for mapping to usernames
-    user_ids = {e.payer_id for e in expenses} | {s.user_id for e in expenses for s in e.splits}
+    return [ExpenseOut.model_validate(e) for e in expenses]
 
-    users_result = await session.execute(
-        select(User.id, User.username).where(User.id.in_(user_ids))
-    )
-    users = dict(users_result.all())  # map id -> username
-
-    # Build response
-    return [
-        ExpenseOut(
-            id=e.id,
-            group_id=e.group_id,
-            description=e.description,
-            amount=e.amount,
-            category=e.category,
-            payer_id=e.payer_id,
-            payer_username=users.get(e.payer_id, "Unknown"),  # <-- include username
-            splits=e.splits,
-        )
-        for e in expenses
-    ]
-
+async def get_user_by_id(session: AsyncSession, user_id: int) -> UserOut:
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return UserOut.model_validate(user)
 
 async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
     return (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
 
 async def get_user_by_username(session: AsyncSession, username: str) -> User | None:
     return (await session.execute(select(User).where(User.username == username))).scalar_one_or_none()
+ 
 
 '''
 async def create_group(session: AsyncSession, *, name: str, currency: str, owner_id: int, member_ids: list[int]) -> Group:

@@ -13,7 +13,7 @@ async function registerUser() {
   console.log(res)
  
   if (res.ok) {
-    alert("Login successful!");
+  //  alert("Login successful!");
       window.location.href = "login.html";
   } else {
     alert("Login failed!");
@@ -29,9 +29,10 @@ const data = new URLSearchParams();
 
   if (res.ok) {
     const json = await res.json();
+   // console.log("username : ",res.username)
     token = json.access_token;
     localStorage.setItem("token", token);
-    alert("Login successful!");
+   // alert("Login successful!");
     window.location.href = "index.html"; // Redirect after login
   } else {
     alert("Login failed!");
@@ -45,4 +46,7 @@ const data = new URLSearchParams();
     });
 
 
- 
+
+
+
+  

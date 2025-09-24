@@ -51,6 +51,7 @@ class Expense(Base):
     amount: Mapped[float] = mapped_column(Numeric(12, 2))
     currency: Mapped[str] = mapped_column(String(10))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    
 
     group: Mapped[Group] = relationship(back_populates="expenses")
     splits: Mapped[list["Split"]] = relationship(back_populates="expense", cascade="all, delete-orphan")
@@ -65,3 +66,4 @@ class Split(Base):
     share_amount: Mapped[float] = mapped_column(Numeric(12, 2))  # how much this user owes for the expense
 
     expense: Mapped[Expense] = relationship(back_populates="splits")
+    user: Mapped["User"] = relationship("User")  # link each split to the corresponding user
