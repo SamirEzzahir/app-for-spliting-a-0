@@ -175,4 +175,3 @@ document.getElementById("expenseForm").onsubmit = async (e) => {
  
 
  
-checkingLogin();

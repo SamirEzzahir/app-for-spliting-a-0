@@ -6,6 +6,7 @@ const res = await fetch(`${API_URL}/expenses/${groupId}`, {
     "Content-Type": "application/json"
   }
 });
+
  if (!res.ok) {
     return;
   }
@@ -18,40 +19,152 @@ expenses.forEach((e, idx) => {
   const row = document.createElement("tr");
 
   // participants: join all user_ids (or you can replace with names if you have them)
-  const participants = e.splits.map(s => s.user_id).join(" , ");
+  const participants = e.splits.map(s => s.username).join(" , ");
 
   // distribution: show each user's share
   const distribution = e.splits.map(s => `${s.share_amount} ${e.currency}`).join(", ");
 
   row.innerHTML = `
-    <td>${idx + 1}</td>
-    <td>${e.description}</td>
-    <td>${e.amount} ${e.currency}</td>
-    <td>${e.payer_username ?? "Unknown"}</td>
-    <td>${participants}</td>
-    <td>${distribution}</td>
-    <td>${e.category ?? "-"}</td>
-    <td><input type="checkbox">
-   
-    </td>
-  `;
-  table.appendChild(row);
-});
+  <td>${e.id}</td>
+  <td>${e.description}</td>
+  <td>${e.amount} ${e.currency}</td>
+  <td>${e.payer_username ?? "Unknown"}</td>
+  <td>${participants}</td>
+  <td>${distribution}</td>
+  <td>${e.category ?? "-"}</td>
+  <td><input type="checkbox" ${e.settled ? "checked" : ""}></td>
+  <td>
+    <button class="btn btn-sm btn-primary" onclick='openEditExpense(${JSON.stringify(e)})'>Edit</button>
+    <button class="btn btn-sm btn-danger" onclick="deleteExpense(${e.id})">Delete</button>
+  </td>
+`;
+
+    table.appendChild(row);
+  });
 }
+
 //console.log("nody: ",expenses.payer_id)
-window.onload = loadExpenses;
+//window.onload = loadExpenses;
 
 
- // Example logout logic
-    document.getElementById("balanceId").addEventListener("click", () => {
-      window.location.href = `balances.html?id=${groupId}`;
-    });
+// ✅ Delete handler
+async function deleteExpense(expenseId) {
+ // if (!confirm("Are you sure you want to delete this expense?")) return;
+
+  const res = await fetch(`${API_URL}/expense/${expenseId}`, {
+    method: "DELETE",
+    headers: {
+      "Authorization": "Bearer " + localStorage.getItem("token")
+    }
+  });
+console.log("dele result : ",res)
+  if (res.ok) {
+  //  alert("Expense deleted");
+    loadExpenses(); // refresh
+  } else {
+    alert("Failed to delete expense");
+  }
+}
+
+let currentEditExpenseId = null;
+
+async function loadEditMembersList(membersArray) {
+  const container = document.getElementById("editMembersList");
+  container.innerHTML = "";
+  if (!membersArray || !membersArray.length) return; // exit if undefined or empty
+
+  membersArray.forEach(member => {
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = member.id;
+    checkbox.checked = false; // or pre-check if part of the expense
+    container.appendChild(checkbox);
+    container.appendChild(document.createTextNode(" " + member.username));
+    container.appendChild(document.createElement("br"));
+  });
+}
 
 
- 
+let members = []; // global
+
+// ✅ Open Edit Modal
+async function openEditExpense(expense) {
+  await loadEditMembersList(members); // works
+  document.getElementById("editExpenseDesc").value = expense.description;
+  document.getElementById("editExpenseAmount").value = expense.amount;
+
+  // Populate members checkboxes
+  
+
+  // Check the right members dynamically
+  const memberInputs = document.querySelectorAll("#editMembersList input");
+  memberInputs.forEach(input => {
+    input.checked = expense.splits.some(s => s.user_id === parseInt(input.value));
+  });
+
+  // Save the current expense ID
+  window.currentEditingExpenseId = expense.id;
+
+  // Show modal
+  const modal = new bootstrap.Modal(document.getElementById("editExpenseModal"));
+  modal.show();
+}
+
+// Save button handler
+document.getElementById("saveEditExpenseBtn").addEventListener("click", async () => {
+  const description = document.getElementById("editExpenseDesc").value;
+  const amount = parseFloat(document.getElementById("editExpenseAmount").value);
+  const currency = "MAD";
+
+  const checkedBoxes = document.querySelectorAll("#editMembersList input:checked");
+  const selectedUserIds = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+  if (selectedUserIds.length === 0) {
+    alert("Please select at least one member!");
+    return;
+  }
+
+  const shareAmount = amount / selectedUserIds.length;
+  const splits = selectedUserIds.map(user_id => ({ user_id, share_amount: shareAmount }));
+
+  const res = await fetch(`${API_URL}/expenses/${window.currentEditingExpenseId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + localStorage.getItem("token"),
+    },
+    body: JSON.stringify({
+      group_id: groupId,
+      description,
+      amount,
+      currency,
+      splits
+    }),
+  });
+
+  if (res.ok) {
+    alert("Expense updated successfully!");
+    loadExpenses();
+    bootstrap.Modal.getInstance(document.getElementById("editExpenseModal")).hide();
+  } else {
+    const error = await res.json();
+    alert("Failed to update expense: " + JSON.stringify(error));
+  }
+});
 
 
-async function createExpense() {
+
+//window.onload = loadExpenses;
+
+
+// Example logout logic
+document.getElementById("balanceId").addEventListener("click", () => {
+  window.location.href = `balances.html?id=${groupId}`;
+});
+
+
+
+
+async function addExpense() {
   const description = document.getElementById("expenseDesc").value;
   const amount = document.getElementById("expenseAmount").value;
   const currency = "MAD";
@@ -159,7 +272,7 @@ async function loadMembers(mode = "table") {
 
 async function loadMembers(mode = "table") {
 
-// Load members
+  // Load members
   const res = await fetch(`${API_URL}/groups/${groupId}/members`, {
     headers: { "Authorization": "Bearer " + token }
   });
@@ -349,6 +462,66 @@ async function checkUserExist(userId) {
     return false;
   }
 }
+
+
+// Download Template
+document.getElementById("downloadTemplateBtn").addEventListener("click", async () => {
+
+  if (!groupId) return alert("Enter Group ID");
+
+  const res = await fetch(`${API_URL}/groups/${groupId}/expenses/download-template`, {
+    method: "GET"
+  });
+  if (!res.ok) return alert("Failed to download template");
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `group_${groupId}_template.xlsx`;
+  a.click();
+  window.URL.revokeObjectURL(url);
+});
+
+// Upload Expenses
+document.getElementById("uploadExpensesBtn").addEventListener("click", async () => {
+
+  const fileInput = document.getElementById("uploadFile");
+  if (!groupId || !fileInput.files.length) return alert("Enter Group ID and select a file");
+
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+
+  const res = await fetch(`${API_URL}/groups/${groupId}/expenses/upload`, {
+    method: "POST",
+    body: formData
+  });
+
+  if (res.ok) {
+    document.getElementById("message").innerHTML = `<div class="alert alert-success">Expenses uploaded successfully!</div>`;
+  } else {
+    document.getElementById("message").innerHTML = `<div class="alert alert-danger">Failed to upload expenses</div>`;
+  }
+});
+
+// Download Current Expenses
+document.getElementById("downloadExpensesBtn").addEventListener("click", async () => {
+
+  if (!groupId) return alert("Enter Group ID");
+
+  const res = await fetch(`${API_URL}/groups/${groupId}/expenses/download`, {
+    method: "GET"
+  });
+  if (!res.ok) return alert("Failed to download expenses");
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `group_${groupId}_expenses.xlsx`;
+  a.click();
+  window.URL.revokeObjectURL(url);
+});
 
 
 loadExpenses();

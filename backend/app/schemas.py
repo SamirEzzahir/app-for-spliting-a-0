@@ -61,6 +61,7 @@ class ExpenseSplitIn(BaseModel):
 class ExpenseSplitOut(BaseModel):
     user_id: int
     share_amount: float
+    username: str | None = None   # ✅ optional now
     model_config = ConfigDict(from_attributes=True)
 
 class ExpenseCreate(BaseModel):
@@ -69,6 +70,12 @@ class ExpenseCreate(BaseModel):
     currency: str
     amount: float = Field(gt=0)
     splits: List[ExpenseSplitIn]
+
+class ExpenseUpdate(BaseModel):
+    description: str | None = None
+    amount: float | None = None
+    category: str | None = None
+    settled: bool | None = None
 
 class ExpenseOut(BaseModel):
     id: int
@@ -79,7 +86,7 @@ class ExpenseOut(BaseModel):
     amount: float
     currency: str
     created_at: datetime
-    splits: List[ExpenseSplitIn]
+    splits: List[ExpenseSplitOut]
     model_config = ConfigDict(from_attributes=True)
 
 
