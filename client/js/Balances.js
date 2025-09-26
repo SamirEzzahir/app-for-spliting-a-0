@@ -1,3 +1,4 @@
+// client/js/Balances.js
 async function loadBalances() {
   try {
     const res = await fetch(`${API_URL}/groups/${groupId}/balances`, {

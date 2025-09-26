@@ -1,4 +1,4 @@
-
+// client/js/group.js
 async function createGroup() {
   const name = document.getElementById("groupName").value;
   const currency = document.getElementById("groupCurrency").value;
@@ -31,7 +31,60 @@ async function createGroup() {
   }
 }
 
-async function loadGroups() {
+
+
+async function loadMembers(mode = "table") {
+
+  // Load members
+  const res = await fetch(`${API_URL}/groups/${groupId}/members`, {
+    headers: { "Authorization": "Bearer " + token }
+  });
+  if (!res.ok) {
+    console.error("Failed to fetch members:", res.status);
+    return;
+  }
+  const members = await res.json();
+
+
+  if (mode === "table") {
+    const tbody = document.querySelector("#membersTable");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    members.forEach(m => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${m.user_id}</td>
+        <td>${m.username || m.user_id}</td>
+        <td>${m.is_admin ? "Yes" : "No"}</td>
+        <td>
+          <button class="btn btn-sm btn-warning" onclick="toggleAdmin(${m.user_id}, ${!m.is_admin})">Toggle Admin</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteMember(${m.user_id})">Delete</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+
+  if (mode === "checkbox") {
+    const container = document.getElementById("membersList");
+    if (!container) return;
+    container.innerHTML = "";
+    members.forEach(m => {
+      const div = document.createElement("div");
+      div.className = "form-check";
+      div.innerHTML = `
+        <input class="form-check-input" type="checkbox" value="${m.user_id}" id="member_${m.user_id}">
+        <label class="form-check-label" for="member_${m.user_id}">${m.username || m.user_id}</label>
+      `;
+      container.appendChild(div);
+    });
+  }
+  return
+
+}
+
+async function loadGroups(mode = "table") {
   const res = await fetch(`${API_URL}/groups`, {
     method: "GET",
     headers: {
@@ -44,7 +97,10 @@ async function loadGroups() {
   }
 
   const groups = await res.json();
+
+    if (mode === "table") {
   const table = document.getElementById("groupsTable");
+  if (!table) return;
   table.innerHTML = "";
 
   if (groups.length === 0) {
@@ -58,7 +114,7 @@ async function loadGroups() {
           <td>${g.id}</td>
           <td>${g.name}</td>
           <td>${g.currency}</td>
-          <td>${g.owner_id}</td>
+          <td>${g.owner_username}</td>
           <td>${new Date(g.created_at).toLocaleString()}</td>
           <td>
             <button class="btn btn-sm btn-primary" onclick="openGroup(${g.id})">Open</button>
@@ -70,8 +126,27 @@ async function loadGroups() {
         `;
     table.appendChild(row);
   });
+   }
+  if (mode === "checkbox") {
+
+const container = document.getElementById("groupsList");
+    if (!container) return;
+    container.innerHTML = "";
+    groups.forEach(g => {
+      const div = document.createElement("div");
+      div.className = "form-check";
+      div.innerHTML = `
+      <input class="form-check-input" type="radio"  name="selectedGroup"  id="group-${g.id}"   value="${g.id}">${g.name}</input>
+      `;
+      container.appendChild(div);
+    });
+console.log(container);
+
+}
 }
 
+
+ 
 
 
 async function deleteGroup(groupId) {
@@ -133,4 +208,10 @@ function openGroup(groupId) {
 
 
 
- loadGroups();
+loadGroups();
+
+// Show members in table
+loadGroups("table");
+
+// Show members as checkbox list
+loadGroups("checkbox");

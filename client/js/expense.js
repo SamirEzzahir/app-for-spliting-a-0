@@ -1,30 +1,35 @@
+// client/js/expense.js
 async function loadExpenses() {
-const res = await fetch(`${API_URL}/expenses/${groupId}`, {
-  method: "GET",
-  headers: {
-    "Authorization": "Bearer " + localStorage.getItem("token"),
-    "Content-Type": "application/json"
-  }
-});
+  const res = await fetch(`${API_URL}/expenses/${groupId}`, {
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer " + localStorage.getItem("token"),
+      "Content-Type": "application/json"
+    }
+  });
 
- if (!res.ok) {
+  if (!res.ok) {
     return;
   }
 
-const expenses =await res.json();
-const table = document.getElementById("expensesTable");
-table.innerHTML = "";
+ const currentUserId = parseInt(document.getElementById("currentUser").dataset.userid, 10);
 
-expenses.forEach((e, idx) => {
-  const row = document.createElement("tr");
+console.log("sasa",currentUserId)
+  const expenses = await res.json();
+  const table = document.getElementById("expensesTable");
+  if (!table) return;
+  table.innerHTML = "";
 
-  // participants: join all user_ids (or you can replace with names if you have them)
-  const participants = e.splits.map(s => s.username).join(" , ");
+  expenses.forEach((e, idx) => {
+    const row = document.createElement("tr");
 
-  // distribution: show each user's share
-  const distribution = e.splits.map(s => `${s.share_amount} ${e.currency}`).join(", ");
+    // participants: join all user_ids (or you can replace with names if you have them)
+    const participants = e.splits.map(s => s.username).join(" , ");
+    // distribution: show each user's share
+    const distribution = e.splits.map(s => `${s.share_amount} ${e.currency}`).join(", ");
 
-  row.innerHTML = `
+   const disabled = e.payer_username !== document.getElementById("currentUser").textContent ? "disabled" : "";
+row.innerHTML = `
   <td>${e.id}</td>
   <td>${e.description}</td>
   <td>${e.amount} ${e.currency}</td>
@@ -32,10 +37,11 @@ expenses.forEach((e, idx) => {
   <td>${participants}</td>
   <td>${distribution}</td>
   <td>${e.category ?? "-"}</td>
+  <td>${new Date(e.created_at).toLocaleString()}</td>
   <td><input type="checkbox" ${e.settled ? "checked" : ""}></td>
   <td>
-    <button class="btn btn-sm btn-primary" onclick='openEditExpense(${JSON.stringify(e)})'>Edit</button>
-    <button class="btn btn-sm btn-danger" onclick="deleteExpense(${e.id})">Delete</button>
+    <button class="btn btn-sm btn-primary" onclick='openEditExpense(${JSON.stringify(e)})' ${disabled}>Edit</button>
+    <button class="btn btn-sm btn-danger" onclick="deleteExpense(${e.id})" ${disabled}>Delete</button>
   </td>
 `;
 
@@ -49,7 +55,7 @@ expenses.forEach((e, idx) => {
 
 // ✅ Delete handler
 async function deleteExpense(expenseId) {
- // if (!confirm("Are you sure you want to delete this expense?")) return;
+  // if (!confirm("Are you sure you want to delete this expense?")) return;
 
   const res = await fetch(`${API_URL}/expense/${expenseId}`, {
     method: "DELETE",
@@ -57,14 +63,27 @@ async function deleteExpense(expenseId) {
       "Authorization": "Bearer " + localStorage.getItem("token")
     }
   });
-console.log("dele result : ",res)
+  //console.log("dele result : ",res)
   if (res.ok) {
-  //  alert("Expense deleted");
+    //  alert("Expense deleted");
     loadExpenses(); // refresh
   } else {
     alert("Failed to delete expense");
   }
 }
+
+
+
+
+
+
+
+// //////////////////////////////////////////////////
+
+
+
+/*
+
 
 let currentEditExpenseId = null;
 
@@ -85,11 +104,11 @@ async function loadEditMembersList(membersArray) {
 }
 
 
-let members = []; // global
 
 // ✅ Open Edit Modal
 async function openEditExpense(expense) {
-  await loadEditMembersList(members); // works
+
+// await loadEditMembersList(members); // works
   document.getElementById("editExpenseDesc").value = expense.description;
   document.getElementById("editExpenseAmount").value = expense.amount;
 
@@ -110,35 +129,89 @@ async function openEditExpense(expense) {
   modal.show();
 }
 
-// Save button handler
-document.getElementById("saveEditExpenseBtn").addEventListener("click", async () => {
-  const description = document.getElementById("editExpenseDesc").value;
-  const amount = parseFloat(document.getElementById("editExpenseAmount").value);
-  const currency = "MAD";
+*/
 
+
+
+/////////////////////New/////////////////////////
+
+// ✅ Fetch members for current group
+async function fetchGroupMembers() {
+  const res = await fetch(`${API_URL}/groups/${groupId}/members`, {
+    headers: { "Authorization": "Bearer " + localStorage.getItem("token") }
+  });
+  if (!res.ok) return [];
+  return await res.json();
+}
+
+async function loadEditMembersList(members, expense) {
+  const container = document.getElementById("editMembersList");
+  if (!container) return;
+  container.innerHTML = "";
+
+  members.forEach(member => {
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = member.user_id;
+    checkbox.id = "editMember_" + member.user_id;
+
+    // ✅ Pre-check if this member is already part of the expense
+    checkbox.checked = expense.splits.some(s => s.user_id === member.user_id);
+
+    const label = document.createElement("label");
+    label.setAttribute("for", checkbox.id);
+    label.classList.add("ms-2");
+    label.textContent = member.username || member.user_id;
+
+    const div = document.createElement("div");
+    div.classList.add("form-check");
+    div.appendChild(checkbox);
+    div.appendChild(label);
+
+    container.appendChild(div);
+  });
+}
+
+
+
+
+
+// Save button handler
+document.addEventListener("DOMContentLoaded", () => {
+  const saveBtn = document.getElementById("saveEditExpenseBtn");
+  if (!saveBtn) return;
+
+  saveBtn.addEventListener("click", async () => {
+    
+
+  const description = document.getElementById("editExpenseDesc").value;
+  const amount = document.getElementById("editExpenseAmount").value;
   const checkedBoxes = document.querySelectorAll("#editMembersList input:checked");
   const selectedUserIds = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
-  if (selectedUserIds.length === 0) {
-    alert("Please select at least one member!");
-    return;
-  }
 
+  // Calculate each share
   const shareAmount = amount / selectedUserIds.length;
-  const splits = selectedUserIds.map(user_id => ({ user_id, share_amount: shareAmount }));
+  // Generate splits array dynamically
+  const splits = selectedUserIds.map(userId => ({
+    user_id: userId,
+    share_amount: shareAmount
+  }));
 
-  const res = await fetch(`${API_URL}/expenses/${window.currentEditingExpenseId}`, {
+
+   
+
+
+  body = JSON.stringify({ description: description, amount: amount, splits: splits });
+
+
+
+  const res = await fetch(`${API_URL}/expense/${window.currentEditingExpenseId}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
       "Authorization": "Bearer " + localStorage.getItem("token"),
     },
-    body: JSON.stringify({
-      group_id: groupId,
-      description,
-      amount,
-      currency,
-      splits
-    }),
+    body: body
   });
 
   if (res.ok) {
@@ -149,16 +222,52 @@ document.getElementById("saveEditExpenseBtn").addEventListener("click", async ()
     const error = await res.json();
     alert("Failed to update expense: " + JSON.stringify(error));
   }
+
+
+
+
 });
+
+  });
+
+
+
+// ✅ Open Edit Modal
+async function openEditExpense(expense) {
+  document.getElementById("editExpenseDesc").value = expense.description;
+  document.getElementById("editExpenseAmount").value = expense.amount;
+
+  const members = await fetchGroupMembers();   // get all members of group
+  await loadEditMembersList(members, expense); // render checkboxes with pre-checks
+
+  window.currentEditingExpenseId = expense.id;
+
+  const modal = new bootstrap.Modal(document.getElementById("editExpenseModal"));
+  modal.show();
+}
+
+
+
+
+
+
+//////////////////////////////////////////////////////
 
 
 
 //window.onload = loadExpenses;
 
 
-// Example logout logic
-document.getElementById("balanceId").addEventListener("click", () => {
-  window.location.href = `balances.html?id=${groupId}`;
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("balanceId");
+  if (btn) { // ✅ check exists
+    btn.addEventListener("click", () => {
+      window.location.href = `balances.html?id=${groupId}`;
+      // your code here
+    });
+  }
 });
 
 
@@ -205,7 +314,7 @@ async function addExpense() {
       splits: splits
     }),
   });
-  console.log("check body:", res);
+  // console.log("check body:", res);
   if (res.ok) {
     const exp = await res.json();
     alert(`Expense created: ${exp.description} (${exp.amount} ${exp.currency})`);
@@ -223,54 +332,6 @@ async function addExpense() {
 // Load members
 
 async function loadMembers(mode = "table") {
-  const res = await fetch(`${API_URL}/groups/${groupId}/members`, {
-    headers: { "Authorization": "Bearer " + token }
-  });
-  if (!res.ok) {
-    console.error("Failed to fetch members:", res.status);
-    return;
-  }
-  const members = await res.json();
-
-
-  if (mode === "table") {
-    const tbody = document.querySelector("#membersTable tbody");
-    tbody.innerHTML = "";
-    members.forEach(m => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${m.user_id}</td>
-        <td>${m.username || m.user_id}</td>
-        <td>${m.is_admin ? "Yes" : "No"}</td>
-        <td>
-          <button class="btn btn-sm btn-warning" onclick="toggleAdmin(${m.user_id}, ${!m.is_admin})">Toggle Admin</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteMember(${m.user_id})">Delete</button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
-
-
-  if (mode === "checkbox") {
-    const container = document.getElementById("membersList");
-    container.innerHTML = "";
-    members.forEach(m => {
-      const div = document.createElement("div");
-      div.className = "form-check";
-      div.innerHTML = `
-        <input class="form-check-input" type="checkbox" value="${m.user_id}" id="member_${m.user_id}">
-        <label class="form-check-label" for="member_${m.user_id}">${m.username || m.user_id}</label>
-      `;
-      container.appendChild(div);
-    });
-  }
-}
-
-
-
-
-async function loadMembers(mode = "table") {
 
   // Load members
   const res = await fetch(`${API_URL}/groups/${groupId}/members`, {
@@ -284,7 +345,8 @@ async function loadMembers(mode = "table") {
 
 
   if (mode === "table") {
-    const tbody = document.querySelector("#membersTable tbody");
+    const tbody = document.querySelector("#membersTable");
+    if (!tbody) return;
     tbody.innerHTML = "";
     members.forEach(m => {
       const tr = document.createElement("tr");
@@ -304,6 +366,7 @@ async function loadMembers(mode = "table") {
 
   if (mode === "checkbox") {
     const container = document.getElementById("membersList");
+    if (!container) return;
     container.innerHTML = "";
     members.forEach(m => {
       const div = document.createElement("div");
@@ -315,7 +378,12 @@ async function loadMembers(mode = "table") {
       container.appendChild(div);
     });
   }
+  return
+
 }
+
+
+
 
 
 
@@ -355,6 +423,9 @@ async function addMember() {
 
 
 }
+
+
+
 
 
 
@@ -418,29 +489,6 @@ async function addMember() {
 
 
 
-// Delete member
-async function deleteMember(userId) {
-  const res = await fetch(`${API_URL}/groups/${groupId}/members/${userId}`, {
-    method: "DELETE",
-    headers: { "Authorization": "Bearer " + token }
-  });
-  if (res.ok) loadMembers();
-  else alert("Failed to delete member");
-}
-
-// Toggle admin status
-async function toggleAdmin(userId, newStatus) {
-  const res = await fetch(`${API_URL}/groups/${groupId}/members/${userId}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + token
-    },
-    body: JSON.stringify({ is_admin: newStatus })
-  });
-  if (res.ok) loadMembers();
-  else alert("Failed to update admin status");
-}
 
 
 // Add member dynamically (without a form)

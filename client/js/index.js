@@ -1,4 +1,4 @@
-
+// client/js/index.js
 
 // Load users into checkboxes
 async function loadUsers(mode = "checkbox") {
@@ -17,6 +17,7 @@ async function loadUsers(mode = "checkbox") {
 
   if (mode === "checkbox") {
     const container = document.getElementById("usersList");
+    if (!container) return;
     container.innerHTML = "";
     users.forEach(user => {
       const div = document.createElement("div");
@@ -31,6 +32,7 @@ async function loadUsers(mode = "checkbox") {
 
   if (mode === "table") {
     const tbody = document.querySelector("#usersTable tbody");
+    if (!tbody) return;
     tbody.innerHTML = "";
     users.forEach(u => {
       const tr = document.createElement("tr");
@@ -70,35 +72,30 @@ async function getUserById(userId) {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  const currentUserSpan = document.getElementById("currentUser");
 
-  async function loadCurrentUser() {
-    try {
-      const res = await fetch(`${API_URL}/currentUser`, {
-        headers: {
-          "Authorization": "Bearer " + token,
-          "Content-Type": "application/json"
-        }
-      });
-      if (!res.ok) {
-        console.error("Failed to fetch current user:", res.status);
-        return;
-      }
+
+
+async function loadCurrentUser() {
+  const userSpan = document.getElementById("currentUser");
+  if (!userSpan) return; // ✅ guard against missing element
+ 
+  try {
+    const res = await fetch(`${API_URL}/currentUser`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+    });
+ 
+    if (res.ok) {
       const user = await res.json();
-      
-      currentUserSpan.textContent = `👤 ${user.username}`;
-    } catch (err) {
-      console.error("Error fetching current user:", err);
+      userSpan.textContent = user.username; // ✅ now userSpan exists
+       
     }
+
+    
+  } catch (err) {
+    console.error("Error fetching current user:", err);
   }
-
-  // Run on page load
-  loadCurrentUser();
-
-
-});
-
+ 
+}
 
 
 
@@ -112,4 +109,5 @@ loadUsers("checkbox");
 
 // Show users as a table
 loadUsers("table");
+
 

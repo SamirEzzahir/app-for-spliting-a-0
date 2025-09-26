@@ -1,4 +1,5 @@
 // Fetch and render expenses
+/*
 async function loadExpenses() {
   const res = await fetch(`${API_URL}/expenses`, {
     headers: {
@@ -9,6 +10,7 @@ async function loadExpenses() {
   if (!res.ok) return console.error("Failed to load expenses");
   const expenses = await res.json();
   const tbody = document.querySelector("#expensesTable tbody");
+  if (!tbody) return;
   tbody.innerHTML = "";
   expenses.forEach(e => {
     const tr = document.createElement("tr");
@@ -17,7 +19,7 @@ async function loadExpenses() {
   });
 }
  
-/*
+
 // Create group
 document.getElementById("groupForm").addEventListener("submit", async (e) => {
     e.preventDefault();
