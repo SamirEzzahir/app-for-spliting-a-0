@@ -1,8 +1,10 @@
 ### `backend/app/crud.py`
-from fastapi import HTTPException,status
+from fastapi import Depends, HTTPException,status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
+
+from backend.app.auth import get_current_user
 from .models import User, Group, Membership, Expense, Split
 from .utils import hash_password
 from .schemas import MembershipOut, UserOut,GroupOut,ExpenseOut,UserUpdate
@@ -66,10 +68,34 @@ async def create_group(session: AsyncSession, *, name: str, currency: str, owner
     return group
 
 # Get all groups
-async def get_groups(session: AsyncSession) -> list[UserOut]:
-    result = await session.execute(select(Group))  # SELECT * FROM users
-    groups = result.scalars().all()               # Get list of User objects
-    return [GroupOut.model_validate(u) for u in groups]
+async def get_groups(session: AsyncSession) -> list[GroupOut]:
+    # Load groups with owner user
+    result = await session.execute(
+        select(Group, User.username)
+        .join(User, User.id == Group.owner_id)
+    )
+    groups_with_username = result.all()
+
+    output = []
+    for group, owner_username in groups_with_username:
+        output.append(
+            GroupOut.model_validate({
+                **group.__dict__,   # include all group fields
+                "owner_username": owner_username
+            })
+        )
+    return output
+
+
+
+
+
+
+
+
+
+
+
 
 # Get group by ID
 async def get_group(session: AsyncSession, group_id: int) -> Group:
@@ -92,7 +118,14 @@ async def update_group(session: AsyncSession, group_id: int, name: str | None, c
 
 # Delete a group
 async def delete_group(session: AsyncSession, group_id: int):
+    current=Depends(get_current_user)
     group = await get_group(session, group_id)
+    # ✅ Vérifier si l'utilisateur courant est le payeur
+    if group.owenr_id != current.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not allowed to delete this expense " 
+        )
     await session.delete(group)
     await session.commit()
 
@@ -115,7 +148,6 @@ async def add_member_to_group(session: AsyncSession, group_id: int, user_id: int
     await session.commit()
     await session.refresh(membership)
     return membership
- 
 
  
 async def add_expense(session: AsyncSession, *, group_id: int, payer_id: int, description: str, amount: float, currency: str, splits: list[tuple[int, float]]) -> Expense:
@@ -132,11 +164,16 @@ async def add_expense(session: AsyncSession, *, group_id: int, payer_id: int, de
     await session.refresh(exp)
     return exp
 
+async def get_expense(session: AsyncSession, expenses_id: int) -> list[ExpenseOut]:
+    result = await session.execute(select(Expense).where(Expense.id == expenses_id)    )
+    expense = result.scalars().all()
+    return [ExpenseOut.model_validate(e) for e in expense]
 
 async def get_expenses(session: AsyncSession, group_id: int) -> list[ExpenseOut]:
     result = await session.execute(select(Expense).where(Expense.group_id == group_id)    )
     expenses = result.scalars().all()
     return [ExpenseOut.model_validate(e) for e in expenses]
+
 
 async def get_user_by_id(session: AsyncSession, user_id: int) -> UserOut:
     result = await session.execute(select(User).where(User.id == user_id))

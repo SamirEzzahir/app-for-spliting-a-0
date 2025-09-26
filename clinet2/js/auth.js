@@ -1,25 +1,3 @@
-
-async function registerUser() {
-
-  const res = await fetch(`${API_URL}/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      username: document.getElementById("username").value,
-      email: document.getElementById("email").value,
-      password: document.getElementById("password").value
-    })
-  });
-  console.log(res)
- 
-  if (res.ok) {
-  //  alert("Login successful!");
-      window.location.href = "login.html";
-  } else {
-    alert("Login failed!");
-  }
-}
-
 async function loginUser() {
 const data = new URLSearchParams();
   data.append("username", document.getElementById("loginUsername").value);
@@ -49,4 +27,21 @@ const data = new URLSearchParams();
 
 
 
-  
+
+// client/js/login.js
+// Register
+async function registerUser(event) {
+  event.preventDefault(); // prevent page refresh
+
+  try {
+    await apiRequest("/auth/register", "POST", {
+      username: document.getElementById("username").value,
+      email: document.getElementById("email").value,
+      password: document.getElementById("password").value
+    });
+
+    window.location.href = "login.html"; // go to login after success
+  } catch (err) {
+    alert("Registration failed: " + err.message);
+  }
+}

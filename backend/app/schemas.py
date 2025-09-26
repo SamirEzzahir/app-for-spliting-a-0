@@ -44,11 +44,19 @@ class GroupOut(BaseModel):
     id: int
     name: str
     currency: str
-    owner_id: int  
+    owner_id: int 
+    owner_username: str  | None = None # <-- add this
+    created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
 
+class SplitUpdate(BaseModel):
+    expense_id :  int | None = None
+    user_id: int
+    share_amount: float
 
+    class Config:
+        from_attributes = True 
 
 
 class ExpenseSplitIn(BaseModel):
@@ -75,7 +83,7 @@ class ExpenseUpdate(BaseModel):
     description: str | None = None
     amount: float | None = None
     category: str | None = None
-    settled: bool | None = None
+    splits: List[ExpenseSplitIn] | None = None
 
 class ExpenseOut(BaseModel):
     id: int

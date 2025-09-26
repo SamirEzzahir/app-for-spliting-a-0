@@ -7,12 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.orm import selectinload
 from backend.app.models import Expense, Membership, Split, User
 from .db import engine, Base, get_session
 from .config import settings
-from .schemas import ExpenseSplitIn, ExpenseSplitOut, ExpenseUpdate, GroupUpdate, SettlementOut, UserCreate, UserOut, Token, GroupCreate, GroupOut, ExpenseCreate, ExpenseOut,MembershipUpdate, BalanceItem,MembershipOut,AddMemberPayload, UserUpdate
+from .schemas import ExpenseSplitIn, ExpenseSplitOut, ExpenseUpdate, GroupUpdate, SettlementOut, SplitUpdate, UserCreate, UserOut, Token, GroupCreate, GroupOut, ExpenseCreate, ExpenseOut,MembershipUpdate, BalanceItem,MembershipOut,AddMemberPayload, UserUpdate
 from .crud import create_user, delete_user, get_groupMembers, get_user_by_email, create_group,delete_group, add_expense, compute_group_balances, get_user_by_id, get_users,get_expenses,get_groups,get_user_by_username,add_member_to_group, update_group, update_user
 from .auth import authenticate, create_access_token, get_current_user
 from .debt import minimize_cash_flow
@@ -63,6 +63,15 @@ async def register(user: UserCreate, session: AsyncSession = Depends(get_session
         raise HTTPException(status_code=400, detail="Email already registered")
     u = await create_user(session, email=user.email, username=user.username, password=user.password)
     return UserOut.model_validate(u)
+
+@app.post("/auth/login", response_model=Token)
+async def login(form: OAuth2PasswordRequestForm = Depends(), session: AsyncSession = Depends(get_session)):
+    user = await authenticate(session, form.username, form.password)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    token = create_access_token(user.username)
+    return Token(access_token=token)
+
 
 
 @app.get("/users", response_model=list[UserOut])
@@ -117,13 +126,6 @@ async def remove_user(
     await delete_user(session, user_id)
     return
 
-@app.post("/auth/login", response_model=Token)
-async def login(form: OAuth2PasswordRequestForm = Depends(), session: AsyncSession = Depends(get_session)):
-    user = await authenticate(session, form.username, form.password)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    token = create_access_token(user.username)
-    return Token(access_token=token)
 
 
 
@@ -320,15 +322,26 @@ async def create_expense_ep(payload: ExpenseCreate,session: AsyncSession = Depen
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
+
 @app.delete("/expense/{expense_id}")
 async def delete_expense(expense_id: int, session: AsyncSession = Depends(get_session), current=Depends(get_current_user)):
     expense = await session.get(Expense, expense_id)
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
+     # ✅ Vérifier si l'utilisateur courant est le payeur
+    if expense.payer_id != current.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not allowed to delete this expense " 
+        )
+
 
     await session.delete(expense)
     await session.commit()
     return {"message": "Expense deleted successfully"}
+
+
 
 @app.put("/expense/{expense_id}")
 async def update_expense(
@@ -337,28 +350,58 @@ async def update_expense(
     session: AsyncSession = Depends(get_session),
     current=Depends(get_current_user)
 ):
-    expense = await session.get(Expense, expense_id)
+    #print("📥 Received update payload:", data.dict())
+    # Charger l'expense avec ses splits
+    expense = await session.get(
+        Expense, expense_id, options=[selectinload(Expense.splits)]
+    )
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
 
+    # ✅ Vérifier si l'utilisateur courant est le payeur
+    if expense.payer_id != current.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not allowed to update this expense " 
+        )
+    
     if data.description is not None:
         expense.description = data.description
     if data.amount is not None:
         expense.amount = data.amount
-    if data.category is not None:
-        expense.category = data.category
-    if data.settled is not None:
-        expense.settled = data.settled
+ 
 
+    # Supprimer les anciens splits
+    await session.execute(delete(Split).where(Split.expense_id == expense.id))
+
+    # Ajouter les nouveaux splits depuis data.splits
+    if data.splits:
+        for s in data.splits:
+            new_split = Split(
+                expense_id=expense.id,
+                user_id=s.user_id,
+                share_amount=s.share_amount
+            )
+            session.add(new_split)
+
+    # Sauvegarder
     await session.commit()
     await session.refresh(expense)
-    return {"message": "Expense updated successfully", "expense": {
-        "id": expense.id,
-        "description": expense.description,
-        "amount": expense.amount,
-        "category": expense.category,
-        "settled": expense.settled
-    }}
+
+    return {
+        "message": "Expense updated successfully",
+        "expense": {
+            "payer_id" : expense.payer_id,
+            "id": expense.id,
+            "description": expense.description,
+            "amount": expense.amount,
+            "currency": expense.currency,
+            "splits": [{"user_id": s.user_id, "share_amount": s.share_amount} for s in data.splits]
+        }
+    }
+
+
+    
 
 @app.get("/expenses/{group_id}", response_model=list[ExpenseOut])
 async def get_group_expenses(group_id: int, session: AsyncSession = Depends(get_session)):
@@ -558,3 +601,73 @@ async def download_expenses(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+
+from sqlalchemy import func
+
+# =========================
+# 📊 Statistics endpoints (fixed joins)
+# =========================
+
+@app.get("/stats/user")
+async def stats_user_expenses(
+    session: AsyncSession = Depends(get_session),
+    current: User = Depends(get_current_user)
+):
+    """Total expenses created by the current user"""
+    result = await session.execute(
+        select(func.sum(Split.share_amount)).where(Split.user_id == current.id)
+    )
+    total = result.scalar() or 0
+    return {"user_id": current.id, "username": current.username, "total_expenses": float(total)}
+
+
+@app.get("/stats/user/groups")
+async def stats_user_groups(
+    session: AsyncSession = Depends(get_session),
+    current: User = Depends(get_current_user)
+):
+    """Expenses per group for the current user"""
+    result = await session.execute(
+        select(
+            Group.id,
+            Group.name,
+            func.sum(Expense.amount)
+        )
+        .join(Expense, Expense.group_id == Group.id)
+        .join(Membership, Membership.group_id == Group.id)
+        .where(Membership.user_id == current.id, Expense.payer_id == current.id)
+        .group_by(Group.id, Group.name)
+    )
+    rows = result.all()
+
+    return [
+        {"group_id": gid, "group_name": gname, "amount": float(total or 0)}
+        for gid, gname, total in rows
+    ]
+
+
+@app.get("/stats/group/{group_id}")
+async def stats_all_groups(group_id: int,
+    session: AsyncSession = Depends(get_session),
+    current: User = Depends(get_current_user)
+):
+    """Expenses grouped by group (all users, global totals)"""
+    result = await session.execute(
+        select(
+            Group.id,
+            Group.name,
+            func.sum(Split.amount)
+        )
+        .join(Split, Split.user_id == current.id)
+        .join(Membership, Membership.group_id == Group.id)
+        .where(Split.user_id == current.id)
+        .group_by(Group.id, Group.name)
+    )
+    rows = result.all()
+
+    return [
+        {"group_id": gid, "group_name": gname, "amount": float(total or 0)}
+        for gid, gname, total in rows
+    ]
