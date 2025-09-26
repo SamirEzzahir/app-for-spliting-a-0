@@ -490,7 +490,6 @@ async function addMember() {
 
 
 
-
 // Add member dynamically (without a form)
 async function checkUserExist(userId) {
   const res = await fetch(`${API_URL}/users/${userId}`, {
